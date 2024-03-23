@@ -145,6 +145,16 @@ def cancel(message: types.Message):
             "INSERT OR IGNORE INTO users (id) VALUES (?)",
             (message.from_user.id,)
         )
+
+        cur = conn.cursor()
+        target, = cur.execute("SELECT target FROM users WHERE id = ?",
+                              (message.from_user.id,)).fetchone()
+        if target is not None:
+            bot.send_message(
+                message.chat.id,
+                "❌ Игра уже идёт, <b>отменить участие нельзя</b>"
+            )
+            return
         conn.execute(
             "UPDATE users SET name = null WHERE id = ?",
             (message.from_user.id,)
@@ -176,7 +186,7 @@ def killer_menu(message: types.Message):
         ).fetchone()
 
         players_count = cur.execute(
-            "SELECT COUNT(*) FROM users"
+            "SELECT COUNT(*) FROM users WHERE name is not null"
         ).fetchone()[0]
 
     rpl = types.InlineKeyboardMarkup()
@@ -349,11 +359,40 @@ def clear_leaderboard(message: types.Message):
             )
             return
 
+    rpl = types.InlineKeyboardMarkup()
+    rpl.row(types.InlineKeyboardButton(
+        "🔴 Подтверждаю", callback_data="clear_lb"
+    ))
+
+    bot.send_message(
+        message.chat.id,
+        "⚠️ Вы действительно хотите отчистить игру?",
+        reply_markup=rpl
+    )
+
+
+@bot.callback_query_handler(CallbackFilter("clear_lb", 1))
+def clear_lb_accept(call: types.CallbackQuery):
+    with conn_db() as conn:
+        cur = conn.cursor()
+        if cur.execute("SELECT 1 FROM users WHERE is_admin = true AND id = ?",
+                       (call.from_user.id,)).fetchone() is None:
+            bot.answer_callback_query(
+                call.id,
+                "Доступ запрещён",
+                True
+            )
+            return
+
         conn.execute("UPDATE users SET kills = 0, target = null")
         conn.commit()
 
-    bot.send_message(message.chat.id,
-                     "✅ Таблица очищена")
+    bot.edit_message_text(
+        "✅ Таблица очищена",
+        call.message.chat.id,
+        call.message.message_id,
+        reply_markup=types.InlineKeyboardMarkup()
+    )
 
 
 @bot.message_handler(commands=["distribute"])
