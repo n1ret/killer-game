@@ -272,7 +272,7 @@ def confirm(call: types.CallbackQuery):
 
         if target_target == killer_id:
             conn.execute("UPDATE users SET "
-                         "target = null "
+                         "target = 0 "
                          "WHERE id = ?",
                          (killer_id,))
 
