@@ -150,9 +150,15 @@ def cancel(message: types.Message):
         target, = cur.execute("SELECT target FROM users WHERE id = ?",
                               (message.from_user.id,)).fetchone()
         if target is not None:
+            rpl = types.InlineKeyboardMarkup()
+            rpl.row(types.InlineKeyboardButton(
+                "❌ Выйти", callback_data="confirm"
+            ))
+
             bot.send_message(
                 message.chat.id,
-                "❌ Игра уже идёт, <b>отменить участие нельзя</b>"
+                "❌ Игра уже идёт, вы уверены что хотите <b>отменить участие</b>?",
+                reply_markup=rpl
             )
             return
         conn.execute(
