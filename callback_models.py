@@ -1,0 +1,13 @@
+from aiogram.filters.callback_data import CallbackData
+
+
+class KillCallback(CallbackData, prefix="kill"):...
+
+
+class ConfirmCallback(CallbackData, prefix="confirm"): ...
+
+
+class DenyCallback(CallbackData, prefix="deny"): ...
+
+
+class ClearLeaderBoard(CallbackData, prefix="clear_lb"): ...
