@@ -1,16 +1,24 @@
 import asyncio
 import logging
+from contextlib import asynccontextmanager
 from os import getenv
+from typing import TYPE_CHECKING
 
+import uvicorn
 from aiogram import Bot, Dispatcher, types
 from aiogram.enums import ParseMode
 from dotenv import load_dotenv
+from fastapi import FastAPI
 
 from callbacks import router as callbacks_router
 from messages import router as messages_router
 from utils import conn_db
 
 load_dotenv()
+
+WEBHOOK_PATH = f"/bot/{getenv('TOKEN')}"
+WEBHOOK_URL = getenv("URL") + WEBHOOK_PATH
+PEM_CERT = getenv("PEM_CERT")
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)-8s[%(asctime)s] %(message)s')
 logger = logging.getLogger(__name__)
@@ -22,6 +30,34 @@ dp.include_routers(callbacks_router, messages_router)
 @dp.error()
 async def error_handler(event: types.ErrorEvent):
     logger.exception(event.exception)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    if TYPE_CHECKING:
+        app.state.bot = Bot()
+
+    webhook_info = await app.state.bot.get_webhook_info()
+    if webhook_info.url != WEBHOOK_URL:
+        await app.state.bot.set_webhook(
+            url=WEBHOOK_URL,
+            certificate=types.FSInputFile(PEM_CERT)
+        )
+
+    yield
+
+    await app.state.bot.close()
+
+
+app = FastAPI(lifespan=lifespan)
+
+
+@app.post(WEBHOOK_PATH)
+async def bot_webhook(update: dict):
+    telegram_update = types.Update.model_validate(
+        update, context={"bot": app.state.bot}
+    )
+    await dp.feed_update(telegram_update)
 
 
 async def main():
@@ -38,8 +74,8 @@ async def main():
         """)
         conn.commit()
 
-    bot = Bot(getenv("TOKEN"), parse_mode=ParseMode.HTML)
-    await dp.start_polling(bot)
+    app.state.bot = Bot(getenv("TOKEN"), parse_mode=ParseMode.HTML)
+    uvicorn.run(app, host="127.0.0.1", port=9998)
 
 
 if __name__ == "__main__":    
