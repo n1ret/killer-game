@@ -1,14 +1,13 @@
 import random
 from os import getenv
 
-from aiogram import Router
+from aiogram import F, Router
 from aiogram.exceptions import TelegramForbiddenError
 from aiogram.filters import Command
 from aiogram.types import Message
 from aiogram.utils.chat_action import ChatActionMiddleware
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.utils.text_decorations import HtmlDecoration
-from magic_filter import F
 
 from callback_models import ConfirmCallback, KillCallback
 from utils import conn_db
@@ -47,7 +46,7 @@ async def admin(message: Message):
     if len(args) != 3 or args[1] not in {"add", "remove"}:
         await message.answer(
             "Аргументы комманды:\n"
-            f"{html.quote("<add|remove>")} <user_id>"
+            f"{html.quote('<add|remove>')} <user_id>"
         )
         return
     _, operation, target_id = args
@@ -256,7 +255,7 @@ async def leaderboard(message: Message):
 
 
 @router.message(F.text)
-def text_message(message: Message):
+async def text_message(message: Message):
     with conn_db() as conn:
         conn.execute(
             "INSERT OR IGNORE INTO users (id) VALUES (?)",
